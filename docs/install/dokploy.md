@@ -104,6 +104,21 @@ Monitor the deployment in the **Deployments** tab.
 | `MINIMAX_API_KEY` | MiniMax |
 | `OPENCODE_API_KEY` | OpenCode |
 
+### Volume Directories
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `OPENCLAW_CONFIG_DIR` | Config directory path | `./data/config` |
+| `OPENCLAW_WORKSPACE_DIR` | Workspace directory path | `./data/workspace` |
+
+**Important**: Create these directories on your server before deploying:
+
+```bash
+# Create directories with proper ownership (uid 1000 = node user)
+mkdir -p ./data/config ./data/workspace
+sudo chown -R 1000:1000 ./data
+```
+
 ### Messaging Channels
 
 | Variable | Channel |
@@ -153,35 +168,59 @@ docker exec -it openclaw-gateway node dist/index.js channels login
 
 ## Data Persistence
 
-The compose file uses Docker named volumes for data persistence:
+The compose file uses bind mounts configured via environment variables:
 
-- `openclaw-config` - Configuration and credentials
-- `openclaw-workspace` - Agent workspaces
+- `${OPENCLAW_CONFIG_DIR}` - Configuration and credentials (default: `./data/config`)
+- `${OPENCLAW_WORKSPACE_DIR}` - Agent workspaces (default: `./data/workspace`)
 
-### Volume Backups
+### Setting Up Directories
 
-Named volumes are compatible with Dokploy's **Volume Backups** feature:
+Before deploying, create the directories on your server with proper ownership:
 
-1. Go to **Volume Backups** tab
-2. Configure S3 destination
-3. Schedule automatic backups
+```bash
+# Default paths (relative to compose file location)
+mkdir -p ./data/config ./data/workspace
 
-### Using Bind Mounts Instead
+# The container runs as uid 1000 (node user), so set ownership
+sudo chown -R 1000:1000 ./data
+```
 
-If you prefer bind mounts (direct file access), edit the compose file:
+Or use custom paths by setting environment variables in Dokploy:
+
+```env
+OPENCLAW_CONFIG_DIR=/path/to/your/config
+OPENCLAW_WORKSPACE_DIR=/path/to/your/workspace
+```
+
+### Using Docker Named Volumes (Optional)
+
+If you prefer Docker named volumes (for Dokploy Volume Backups compatibility), edit the compose file:
 
 ```yaml
 volumes:
-  # Comment out named volumes
-  # - openclaw-config:/home/node/.openclaw
-  # - openclaw-workspace:/home/node/.openclaw/workspace
+  # Comment out bind mounts
+  # - ${OPENCLAW_CONFIG_DIR:-./data/config}:/home/node/.openclaw
+  # - ${OPENCLAW_WORKSPACE_DIR:-./data/workspace}:/home/node/.openclaw/workspace
 
-  # Use bind mounts with ../files
-  - ../files/config:/home/node/.openclaw
-  - ../files/workspace:/home/node/.openclaw/workspace
+  # Use named volumes instead
+  - openclaw-config:/home/node/.openclaw
+  - openclaw-workspace:/home/node/.openclaw/workspace
 ```
 
-Note: Bind mounts don't work with Dokploy Volume Backups.
+Then add the volumes section at the bottom:
+
+```yaml
+volumes:
+  openclaw-config:
+    name: openclaw-config
+  openclaw-workspace:
+    name: openclaw-workspace
+```
+
+Note: Named volumes may require fixing permissions after first deployment:
+```bash
+docker exec -u root openclaw-gateway chown -R node:node /home/node/.openclaw
+```
 
 ## Custom Packages
 

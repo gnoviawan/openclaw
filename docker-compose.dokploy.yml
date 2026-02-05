@@ -86,12 +86,10 @@ services:
       # Gateway requires token (not optional)
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
     volumes:
-      # Option 1: Docker named volumes (recommended for Dokploy Volume Backups)
-      - openclaw-config:/home/node/.openclaw
-      - openclaw-workspace:/home/node/.openclaw/workspace
-      # Option 2: Bind mounts using ../files (uncomment and comment above)
-      # - ../files/config:/home/node/.openclaw
-      # - ../files/workspace:/home/node/.openclaw/workspace
+      # Bind mounts using environment variables (set in Dokploy Environment tab)
+      # Defaults to ./data/config and ./data/workspace relative to compose file
+      - ${OPENCLAW_CONFIG_DIR:-./data/config}:/home/node/.openclaw
+      - ${OPENCLAW_WORKSPACE_DIR:-./data/workspace}:/home/node/.openclaw/workspace
     expose:
       - "18789"
       - "18790"
@@ -116,16 +114,6 @@ services:
         "--port",
         "18789"
       ]
-
-# =============================================================================
-# VOLUMES
-# =============================================================================
-
-volumes:
-  openclaw-config:
-    name: openclaw-config
-  openclaw-workspace:
-    name: openclaw-workspace
 
 # =============================================================================
 # NETWORKS
