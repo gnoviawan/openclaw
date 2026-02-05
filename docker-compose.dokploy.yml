@@ -1,22 +1,14 @@
-# OpenClaw Dokploy Deployment
+# OpenClaw Dokploy Deployment (Build from Source)
 #
-# This Docker Compose file is optimized for Dokploy deployment.
-# It uses pre-built images from GitHub Container Registry.
-#
-# Deployment Options:
-#   1. RECOMMENDED: Use Dokploy's native domain management (Domains tab in UI)
-#   2. MANUAL: Configure Traefik labels directly in this file
+# This version builds the image on your server to ensure architecture compatibility.
+# First deployment will take 5-10 minutes for compilation.
 #
 # Setup in Dokploy:
 #   1. Create a new Docker Compose application
-#   2. Paste this file or point to the repository
+#   2. Set the compose type to "Build from Dockerfile" or paste this content
 #   3. Configure environment variables in the Environment tab
 #   4. Add domain in the Domains tab (select openclaw-gateway service, port 18789)
 #   5. Deploy
-#
-# Volume Persistence:
-#   - Uses Docker named volumes for Dokploy Volume Backups compatibility
-#   - Alternatively, use ../files/ for bind mounts
 
 # =============================================================================
 # SHARED CONFIGURATION (YAML Anchors)
@@ -84,7 +76,10 @@ x-tools: &tools
 
 services:
   openclaw-gateway:
-    image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:main}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: openclaw:local
     container_name: openclaw-gateway
     environment:
       <<: [*common-env, *ai-providers, *aws-bedrock, *channel-tokens, *tools]
@@ -97,21 +92,15 @@ services:
       # Option 2: Bind mounts using ../files (uncomment and comment above)
       # - ../files/config:/home/node/.openclaw
       # - ../files/workspace:/home/node/.openclaw/workspace
-    # Expose port for Traefik (Dokploy will add labels automatically via Domains tab)
     expose:
       - "18789"
       - "18790"
-    # Or use ports if you need direct host access (not recommended with Traefik)
-    # ports:
-    #   - "${OPENCLAW_GATEWAY_PORT:-18789}:18789"
-    #   - "${OPENCLAW_BRIDGE_PORT:-18790}:18790"
     networks:
       - dokploy-network
     init: true
     restart: unless-stopped
-    # Health check for Dokploy monitoring
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:18789/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test: ["CMD-SHELL", "node -e 'require(\"net\").connect({port:18789,host:\"localhost\"},()=>process.exit(0)).on(\"error\",()=>process.exit(1))'"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -121,23 +110,15 @@ services:
         "node",
         "dist/index.js",
         "gateway",
+        "--allow-unconfigured",
         "--bind",
-        "all",
+        "lan",
         "--port",
         "18789"
       ]
-    # Manual Traefik labels (only if NOT using Dokploy Domains tab)
-    # Uncomment and customize if you prefer manual configuration
-    # labels:
-    #   - traefik.enable=true
-    #   - traefik.http.routers.openclaw-gateway.rule=Host(`openclaw.yourdomain.com`)
-    #   - traefik.http.routers.openclaw-gateway.entrypoints=websecure
-    #   - traefik.http.routers.openclaw-gateway.tls=true
-    #   - traefik.http.routers.openclaw-gateway.tls.certresolver=letsencrypt
-    #   - traefik.http.services.openclaw-gateway.loadbalancer.server.port=18789
 
 # =============================================================================
-# VOLUMES (Docker Named Volumes for Dokploy Volume Backups)
+# VOLUMES
 # =============================================================================
 
 volumes:
