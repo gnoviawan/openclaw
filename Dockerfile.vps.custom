@@ -1,0 +1,77 @@
+# OpenClaw VPS Custom Image
+#
+# Use this Dockerfile to build a custom image with additional apt packages.
+# This is the recommended approach for packages that need to persist across restarts.
+#
+# Usage:
+#   1. Edit the OPENCLAW_APT_PACKAGES line below to add your packages
+#   2. Build the image:
+#      docker build -f Dockerfile.vps.custom -t openclaw-custom:latest .
+#   3. Update .env to use your custom image:
+#      OPENCLAW_IMAGE=openclaw-custom:latest
+#   4. Start the gateway:
+#      docker compose -f docker-compose.vps.yml up -d openclaw-gateway
+
+# Base image - use the official OpenClaw image
+ARG OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:main
+FROM ${OPENCLAW_BASE_IMAGE}
+
+# Switch to root to install packages
+USER root
+
+# =============================================================================
+# CUSTOM APT PACKAGES
+# =============================================================================
+# Add your required packages here (space-separated)
+# Examples:
+#   - ffmpeg: Video/audio processing
+#   - imagemagick: Image manipulation
+#   - build-essential: Compilers and build tools
+#   - python3 python3-pip: Python runtime
+#   - git: Version control
+#   - curl wget: HTTP clients
+#   - jq: JSON processor
+#   - ripgrep: Fast text search
+#   - pandoc: Document conversion
+
+ARG OPENCLAW_APT_PACKAGES="ffmpeg"
+
+RUN if [ -n "$OPENCLAW_APT_PACKAGES" ]; then \
+      apt-get update && \
+      DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $OPENCLAW_APT_PACKAGES && \
+      apt-get clean && \
+      rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*; \
+    fi
+
+# =============================================================================
+# CUSTOM BINARIES (Optional)
+# =============================================================================
+# Copy custom binaries from build context
+# Uncomment and modify as needed:
+#
+# COPY ./bin/my-tool /usr/local/bin/my-tool
+# RUN chmod +x /usr/local/bin/my-tool
+
+# =============================================================================
+# CUSTOM SCRIPTS (Optional)
+# =============================================================================
+# Copy and run custom setup scripts
+# Uncomment and modify as needed:
+#
+# COPY ./scripts/setup.sh /tmp/setup.sh
+# RUN chmod +x /tmp/setup.sh && /tmp/setup.sh && rm /tmp/setup.sh
+
+# =============================================================================
+# ENVIRONMENT (Optional)
+# =============================================================================
+# Add custom environment variables
+# Uncomment and modify as needed:
+#
+# ENV MY_CUSTOM_VAR=value
+# ENV PATH="/custom/bin:${PATH}"
+
+# Switch back to non-root user for security
+USER node
+
+# Default command (inherited from base image)
+CMD ["node", "dist/index.js"]

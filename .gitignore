@@ -71,3 +71,8 @@ USER.md
 
 # local tooling
 .serena/
+/.claude
+/.opencode
+/_bmad
+/_bmad-output
+/context
